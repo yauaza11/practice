@@ -1,0 +1,131 @@
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+# ChromeDriver 경로 설정
+chrome_driver_path = 'C:/chromedriver/chromedriver.exe'
+service = Service(chrome_driver_path)
+driver = webdriver.Chrome(service=service)
+
+# 크롤링할 URL (초기 페이지)
+initial_url = "https://map.naver.com/v5/search/대구 카페"
+
+# 네이버 플레이스 페이지 열기
+driver.get(initial_url)
+WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "input_search")))
+
+# 검색어 입력
+search_box = driver.find_element(By.CLASS_NAME, "input_search")
+search_box.send_keys(Keys.ENTER)
+
+# iframe 전환 함수
+def switch_to_search_iframe():
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe#searchIframe")))
+    iframe = driver.find_element(By.CSS_SELECTOR, "iframe#searchIframe")
+    driver.switch_to.frame(iframe)
+
+# 첫 번째 페이지에서는 iframe으로 전환
+switch_to_search_iframe()
+
+# 페이지 로딩 대기
+time.sleep(5)
+
+# MVx6e 클래스를 가진 요소 두 번 클릭 (스크롤하기 전에 호출)
+def click_before_scroll():
+    try:
+        mvx6e_element = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.CLASS_NAME, "MVx6e"))
+        )
+        # 두 번 클릭
+        mvx6e_element.click()
+        time.sleep(0.5)  # 클릭 간 잠시 대기
+        mvx6e_element.click()
+        print("MVx6e 요소 두 번 클릭 성공")
+    except Exception as e:
+        print(f"MVx6e 요소 클릭 실패: {e}")
+
+# 스크롤을 하면서 TYaxT 클래스의 요소 수가 더 이상 증가하지 않으면 멈춤
+def scroll_until_no_more_tyaxT():
+    last_count = 0  # 마지막으로 인식된 TYaxT 요소의 개수
+    no_change_start = time.time()  # TYaxT 개수 변화가 없는 시간의 시작
+
+    while True:
+        # 현재 TYaxT 클래스의 요소들을 찾음
+        elements = driver.find_elements(By.CLASS_NAME, "TYaxT")
+        current_count = len(elements)  # 현재 TYaxT 클래스 요소의 개수
+
+        # 개수에 변화가 있는지 확인
+        if current_count > last_count:
+            last_count = current_count  # 개수가 증가했으므로 업데이트
+            no_change_start = time.time()  # 타이머를 초기화
+            print(f"현재 TYaxT 요소 개수: {current_count}")
+        else:
+            # 개수에 변화가 없다면, 4초 동안 대기한 후에 멈춤
+            if time.time() - no_change_start > 4:
+                print("4초간 TYaxT 요소 개수 변화 없음. 스크롤을 멈춥니다.")
+                break
+
+        # 실제로 페이지를 물리적으로 내림 (Page Down 키를 매우 빠르게 실행)
+        body_element = driver.find_element(By.TAG_NAME, "body")
+        for _ in range(10):  # 매우 빠르게 10번 스크롤
+            body_element.send_keys(Keys.PAGE_DOWN)
+            time.sleep(0.1)  # 페이지 다운 간 딜레이를 약간 길게 설정
+
+        # 스크롤 후 새로운 TYaxT가 로드되었는지 대기
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.CLASS_NAME, "TYaxT"))
+        )
+
+# 특정 클래스('TYaxT')를 가진 요소 찾기 및 클릭
+def click_and_collect_reviews():
+    # MVx6e 요소 두 번 클릭
+    click_before_scroll()
+
+    # 스크롤해서 모든 TYaxT 요소를 로딩
+    scroll_until_no_more_tyaxT()
+    
+    # 이제 모든 TYaxT 요소가 로드된 후 수집
+    elements = driver.find_elements(By.CLASS_NAME, "TYaxT")
+    for element in elements:
+        place_name = element.text
+        print(f"클릭할 요소 텍스트: {place_name}")
+
+# 페이지 버튼들을 순차적으로 클릭하는 함수 (2, 3, 4, 5번)
+def click_page_buttons():
+    for i in range(1, 6):  # 5번 반복
+        try:
+            # 데이터 수집
+            click_and_collect_reviews()
+
+            # 페이지 번호 버튼이 로드될 때까지 대기
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a.mBN2s"))
+            )
+            # 모든 페이지 번호 버튼을 찾음
+            page_buttons = driver.find_elements(By.CSS_SELECTOR, "a.mBN2s")
+            
+            if i < len(page_buttons):  # i가 버튼 인덱스 범위 내에 있는지 확인
+                page_buttons[i].click()  # 2, 3, 4, 5번 페이지 클릭
+                print(f"{i+1}번 페이지로 이동")
+                time.sleep(6)  # 페이지 로딩 대기
+                # iframe 다시 전환
+                driver.switch_to.default_content()  # 기본 콘텐츠로 돌아옴
+                switch_to_search_iframe()  # 페이지 전환 후 다시 iframe 전환
+                time.sleep(2)  # 추가 대기
+            else:
+                print(f"{i+1}번 페이지 버튼을 찾을 수 없음.")
+                break
+
+        except Exception as e:
+            print(f"{i+1}번 페이지로 이동 실패: {e}")
+            break
+
+# 2, 3, 4, 5번 페이지로 이동하며 데이터 수집
+click_page_buttons()
+
+# 종료
+driver.quit()
