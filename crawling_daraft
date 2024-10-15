@@ -488,9 +488,19 @@ def click_and_collect_reviews():
             # 이미지 주소 추출
             try:
                 image_elements = driver.find_elements(By.CSS_SELECTOR, ".place_thumb.QX0J7 img")
-                image_urls_str = clean_text(", ".join([img.get_attribute("src") for img in image_elements if img.get_attribute("src").startswith("http")]))
+                image_urls = [img.get_attribute("src") for img in image_elements if img.get_attribute("src").startswith("http")]
+                
+                # 이미지 주소가 하나일 경우와 여러 개일 경우 따옴표 처리
+                if len(image_urls) == 1:
+                    image_urls = f'"{image_urls[0]}"'
+                elif len(image_urls) > 1:
+                    image_urls = f'"{", ".join(image_urls)}"'
+                else:
+                    image_urls = "이미지 없음"
+
             except:
-                image_urls_str = "이미지 없음"
+                image_urls = "이미지 없음"
+
 
             # SNS 링크 추출
             try:
@@ -500,9 +510,18 @@ def click_and_collect_reviews():
                     link = sns_element.get_attribute('href')
                     if link.startswith("http"):
                         sns_links.append(link)
-                sns_links_str = clean_text(", ".join(sns_links)) if sns_links else "링크 없음"
+                
+                # SNS 링크가 여러 개인 경우 쉼표로 구분하여 따옴표로 감싸기, 하나일 경우도 따옴표로 감싸기
+                if len(sns_links) == 1:
+                    sns_links = f'"{sns_links[0]}"'
+                elif len(sns_links) > 1:
+                    sns_links = f'"{", ".join(sns_links)}"'
+                else:
+                    sns_links = "링크 없음"
+
             except:
-                sns_links_str = "링크 없음"
+                sns_links = "링크 없음"
+
 
             # 주차 정보 추출
             try:
@@ -550,8 +569,8 @@ def click_and_collect_reviews():
                 "주소": address,
                 "운영 시간": operating_hours_str,
                 "평점": rating,
-                "이미지 주소": image_urls_str,
-                "SNS 링크": sns_links_str,
+                "이미지 주소": image_urls,
+                "SNS 링크": sns_links,
                 "주차 정보": parking_info,
                 "리뷰1": review1,
                 "리뷰2": review2,
